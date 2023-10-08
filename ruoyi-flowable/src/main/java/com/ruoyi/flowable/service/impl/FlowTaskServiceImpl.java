@@ -698,10 +698,9 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
                 .taskCandidateOrAssigned(sysUser.getUserId().toString())
                 .orderByTaskCreateTime().desc();
 
-//        TODO 传入名称查询不到数据?
-//        if (StringUtils.isNotBlank(queryVo.getName())){
-//            taskQuery.processDefinitionNameLike(queryVo.getName());
-//        }
+        if (StringUtils.isNotBlank(queryVo.getName())) {
+            taskQuery.processDefinitionNameLike('%' + queryVo.getName() + '%');
+        }
         page.setTotal(taskQuery.count());
         List<Task> taskList = taskQuery.listPage(queryVo.getPageSize() * (queryVo.getPageNum() - 1), queryVo.getPageSize());
         List<FlowTaskDto> flowList = new ArrayList<>();
