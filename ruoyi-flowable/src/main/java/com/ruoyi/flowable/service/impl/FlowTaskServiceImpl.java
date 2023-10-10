@@ -106,6 +106,25 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
             taskService.addComment(taskVo.getTaskId(), taskVo.getInstanceId(), FlowComment.NORMAL.getType(), taskVo.getComment());
             Long userId = SecurityUtils.getLoginUser().getUser().getUserId();
             taskService.setAssignee(taskVo.getTaskId(), userId.toString());
+
+            // 查询流程定义
+            ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
+                    .processDefinitionId(task.getProcessDefinitionId())
+                    .singleResult();
+            // 获取流程定义的BPMN模型
+            BpmnModel bpmnModel = repositoryService.getBpmnModel(processDefinition.getId());
+            // 获取当前任务的下一个活动
+            FlowElement nextFlowElement = bpmnModel.getFlowElement(task.getTaskDefinitionKey());
+            // 检查下一个活动是否是多实例任务
+            if (nextFlowElement instanceof UserTask) {
+                UserTask userTask = (UserTask) nextFlowElement;
+                MultiInstanceLoopCharacteristics multiInstance = userTask.getLoopCharacteristics();
+                if (multiInstance != null) {
+                    // 如果下一个节点是多实例,则变量存储到task里面去
+                    taskService.complete(taskVo.getTaskId(), taskVo.getVariables(), true);
+                    return AjaxResult.success();
+                }
+            }
             taskService.complete(taskVo.getTaskId(), taskVo.getVariables());
         }
         return AjaxResult.success();
