@@ -2,18 +2,16 @@ package com.ruoyi.flowable.service.impl;
 
 
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.TypeReference;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.ruoyi.common.core.domain.model.LoginUser;
-import com.ruoyi.flowable.common.constant.ProcessConstants;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.common.core.domain.entity.SysUser;
-import com.ruoyi.flowable.common.enums.FlowComment;
 import com.ruoyi.common.exception.CustomException;
 import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.flowable.common.constant.ProcessConstants;
+import com.ruoyi.flowable.common.enums.FlowComment;
 import com.ruoyi.flowable.domain.dto.FlowCommentDto;
 import com.ruoyi.flowable.domain.dto.FlowNextDto;
 import com.ruoyi.flowable.domain.dto.FlowTaskDto;
@@ -38,13 +36,13 @@ import org.flowable.bpmn.model.Process;
 import org.flowable.bpmn.model.*;
 import org.flowable.common.engine.api.FlowableException;
 import org.flowable.common.engine.api.FlowableObjectNotFoundException;
-import org.flowable.common.engine.impl.identity.Authentication;
 import org.flowable.engine.ProcessEngineConfiguration;
 import org.flowable.engine.history.HistoricActivityInstance;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.history.HistoricProcessInstanceQuery;
+import org.flowable.engine.impl.cmd.AddMultiInstanceExecutionCmd;
+import org.flowable.engine.impl.cmd.DeleteMultiInstanceExecutionCmd;
 import org.flowable.engine.repository.ProcessDefinition;
-import org.flowable.engine.runtime.ActivityInstance;
 import org.flowable.engine.runtime.Execution;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.engine.task.Comment;
@@ -55,8 +53,6 @@ import org.flowable.task.api.Task;
 import org.flowable.task.api.TaskQuery;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.flowable.task.api.history.HistoricTaskInstanceQuery;
-import org.flowable.engine.impl.cmd.AddMultiInstanceExecutionCmd;
-import org.flowable.engine.impl.cmd.DeleteMultiInstanceExecutionCmd;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -107,25 +103,32 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
             Long userId = SecurityUtils.getLoginUser().getUser().getUserId();
             taskService.setAssignee(taskVo.getTaskId(), userId.toString());
 
-            // 查询流程定义
-            ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
-                    .processDefinitionId(task.getProcessDefinitionId())
-                    .singleResult();
-            // 获取流程定义的BPMN模型
-            BpmnModel bpmnModel = repositoryService.getBpmnModel(processDefinition.getId());
-            // 获取当前任务的下一个活动
-            FlowElement nextFlowElement = bpmnModel.getFlowElement(task.getTaskDefinitionKey());
-            // 检查下一个活动是否是多实例任务
-            if (nextFlowElement instanceof UserTask) {
-                UserTask userTask = (UserTask) nextFlowElement;
-                MultiInstanceLoopCharacteristics multiInstance = userTask.getLoopCharacteristics();
-                if (multiInstance != null) {
-                    // 如果下一个节点是多实例,则变量存储到task里面去
-                    taskService.complete(taskVo.getTaskId(), taskVo.getVariables(), true);
-                    return AjaxResult.success();
-                }
-            }
             taskService.complete(taskVo.getTaskId(), taskVo.getVariables());
+
+            /************************ 给多实例任务手动指定处理人 ***************************/
+            // 查询流程定义
+            List<UserTask> nextUserTasks = FindNextNodeUtil.getNextUserTasks(repositoryService, task);
+            // 循环下一个节点的 UserTask 数据
+            nextUserTasks.forEach(n -> {
+                MultiInstanceLoopCharacteristics multiInstance = n.getLoopCharacteristics();
+                // 存在下一个多实例节点，设置多实例任务的执行者
+                if (multiInstance != null) {
+                    String collectionString = multiInstance.getInputDataItem();
+                    Map<String, Object> variables = taskVo.getVariables();
+                    if (collectionString != null && variables != null && !variables.isEmpty() &&
+                            taskVo.getVariables().containsKey(collectionString)) {
+                        List<String> multiInstanceVar = (ArrayList<String>) variables.get(collectionString);
+                        // 获取下一个节点多实例任务
+                        List<Task> list = taskService.createTaskQuery()
+                                .processInstanceId(task.getProcessInstanceId())
+                                .taskDefinitionKeyLike("%" + n.getId() + "%").list();
+                        for (int i = 0; i < multiInstanceVar.size(); i++) {
+                            Task tempTask = list.get(i);
+                            taskService.setAssignee(tempTask.getId(), String.valueOf(multiInstanceVar.get(i)));
+                        }
+                    }
+                }
+            });
         }
         return AjaxResult.success();
     }

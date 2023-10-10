@@ -2,24 +2,58 @@ package com.ruoyi.flowable.flow;
 
 import com.googlecode.aviator.AviatorEvaluator;
 import com.googlecode.aviator.Expression;
-//import com.greenpineyu.fel.FelEngine;
-//import com.greenpineyu.fel.FelEngineImpl;
-//import com.greenpineyu.fel.context.FelContext;
-import org.apache.commons.lang3.StringUtils;
 import org.flowable.bpmn.model.Process;
 import org.flowable.bpmn.model.*;
 import org.flowable.engine.RepositoryService;
-import org.flowable.engine.TaskService;
-import org.flowable.engine.repository.Model;
 import org.flowable.engine.repository.ProcessDefinition;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author Tony
  * @date 2021/4/19 20:51
  */
 public class FindNextNodeUtil {
+
+    /**
+     * 获取下一步骤的用户任务
+     *
+     * @param repositoryService 服务
+     * @param task              当前节点任务
+     * @return {@link List<UserTask> List<UserTask>}
+     */
+    public static List<UserTask> getNextUserTasks(RepositoryService repositoryService, org.flowable.task.api.Task task) {
+        List<UserTask> data = new ArrayList<>();
+        // 查询流程定义
+        ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
+                .processDefinitionId(task.getProcessDefinitionId())
+                .singleResult();
+        // 获取流程定义的BPMN模型
+        BpmnModel bpmnModel = repositoryService.getBpmnModel(processDefinition.getId());
+
+        // 找到与当前任务相连的 SequenceFlow
+        List<SequenceFlow> outgoingFlows = bpmnModel.getMainProcess()
+                .findFlowElementsOfType(SequenceFlow.class)
+                .stream()
+                .filter(sequenceFlow -> sequenceFlow.getSourceRef().equals(task.getTaskDefinitionKey()))
+                .collect(Collectors.toList());
+
+        // 获取下一个节点的 FlowElement 数据
+        if (!outgoingFlows.isEmpty()) {
+            SequenceFlow sequenceFlow = outgoingFlows.get(0); // 假设只有一个出线
+            FlowElement nextFlowElement = bpmnModel.getMainProcess()
+                    .getFlowElement(sequenceFlow.getTargetRef());
+            if (nextFlowElement instanceof UserTask) {
+                data.add((UserTask) nextFlowElement);
+            }
+        }
+
+        return data;
+    }
 
     /**
      * 获取下一步骤的用户任务
@@ -64,7 +98,6 @@ public class FindNextNodeUtil {
         next(flowElements, flowElement, map, data);
         return data;
     }
-
 
 
     /**
