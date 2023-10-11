@@ -105,7 +105,7 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
 
             taskService.complete(taskVo.getTaskId(), taskVo.getVariables());
 
-            /************************ 给多实例任务手动指定处理人 ***************************/
+            //*********************** 给多实例任务手动指定处理人 ***************************/
             // 查询流程定义
             List<UserTask> nextUserTasks = FindNextNodeUtil.getNextUserTasks(repositoryService, task);
             // 循环下一个节点的 UserTask 数据
@@ -122,7 +122,7 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
                         List<Task> list = taskService.createTaskQuery()
                                 .processInstanceId(task.getProcessInstanceId())
                                 .taskDefinitionKeyLike("%" + n.getId() + "%").list();
-                        for (int i = 0; i < multiInstanceVar.size(); i++) {
+                        for (int i = 0; i < list.size(); i++) {
                             Task tempTask = list.get(i);
                             taskService.setAssignee(tempTask.getId(), String.valueOf(multiInstanceVar.get(i)));
                         }
