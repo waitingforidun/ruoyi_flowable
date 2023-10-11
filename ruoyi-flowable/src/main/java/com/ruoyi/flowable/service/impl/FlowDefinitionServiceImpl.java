@@ -124,9 +124,10 @@ public class FlowDefinitionServiceImpl extends FlowServiceFactory implements IFl
 
     /**
      * 导入流程文件
-     *
+     * <p>
      * 当每个key的流程第一次部署时，指定版本为1。对其后所有使用相同key的流程定义，
      * 部署时版本会在该key当前已部署的最高版本号基础上加1。key参数用于区分流程定义
+     *
      * @param name
      * @param category
      * @param in
@@ -195,23 +196,21 @@ public class FlowDefinitionServiceImpl extends FlowServiceFactory implements IFl
             if (Objects.nonNull(processDefinition) && processDefinition.isSuspended()) {
                 return AjaxResult.error("流程已被挂起,请先激活流程");
             }
-            // 设置流程发起人Id到流程中
+            // 流程发起时 跳过发起人节点
             SysUser sysUser = SecurityUtils.getLoginUser().getUser();
             identityService.setAuthenticatedUserId(sysUser.getUserId().toString());
+            // 设置流程发起人Id保存到变量中
             variables.put(ProcessConstants.PROCESS_INITIATOR, sysUser.getUserId());
-            runtimeService.startProcessInstanceById(procDefId, variables);
-            // 流程发起时 跳过发起人节点
-//            SysUser sysUser = SecurityUtils.getLoginUser().getUser();
-//            identityService.setAuthenticatedUserId(sysUser.getUserId().toString());
-//            variables.put(ProcessConstants.PROCESS_INITIATOR, "");
-//            ProcessInstance processInstance = runtimeService.startProcessInstanceById(procDefId, variables);
-//            // 给第一步申请人节点设置任务执行人和意见
-//            Task task = taskService.createTaskQuery().processInstanceId(processInstance.getProcessInstanceId()).singleResult();
-//            if (Objects.nonNull(task)) {
-//                taskService.addComment(task.getId(), processInstance.getProcessInstanceId(), FlowComment.NORMAL.getType(), sysUser.getNickName() + "发起流程申请");
-////                taskService.setAssignee(task.getId(), sysUser.getUserId().toString());
-//                taskService.complete(task.getId(), variables);
-//            }
+            // TODO 这里应该添加开关控制是否跳过第一个申请人节点
+            ProcessInstance processInstance = runtimeService.startProcessInstanceById(procDefId, variables);
+            // 给第一步申请人节点设置任务执行人和意见
+            Task task = taskService.createTaskQuery().processInstanceId(processInstance.getProcessInstanceId()).singleResult();
+            if (Objects.nonNull(task)) {
+                taskService.addComment(task.getId(), processInstance.getProcessInstanceId(), FlowComment.NORMAL.getType(),
+                        sysUser.getNickName() + "发起流程申请");
+                taskService.setAssignee(task.getId(), sysUser.getUserId().toString());
+                taskService.complete(task.getId(), variables);
+            }
             return AjaxResult.success("流程启动成功");
         } catch (Exception e) {
             e.printStackTrace();
