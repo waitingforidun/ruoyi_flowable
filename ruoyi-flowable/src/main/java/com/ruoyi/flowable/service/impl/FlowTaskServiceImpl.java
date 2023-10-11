@@ -102,7 +102,6 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
             taskService.addComment(taskVo.getTaskId(), taskVo.getInstanceId(), FlowComment.NORMAL.getType(), taskVo.getComment());
             Long userId = SecurityUtils.getLoginUser().getUser().getUserId();
             taskService.setAssignee(taskVo.getTaskId(), userId.toString());
-
             taskService.complete(taskVo.getTaskId(), taskVo.getVariables());
 
             //*********************** 给多实例任务手动指定处理人 ***************************/
@@ -237,7 +236,14 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
             }
         }));
         // 设置驳回意见
-        currentTaskIds.forEach(item -> taskService.addComment(item, task.getProcessInstanceId(), FlowComment.REJECT.getType(), flowTaskVo.getComment()));
+        currentTaskIds.forEach(item ->{
+            taskService.addComment(item, task.getProcessInstanceId(), FlowComment.REJECT.getType(), flowTaskVo.getComment());
+
+        });
+
+
+
+
 
         try {
             // 如果父级任务多于 1 个，说明当前节点不是并行节点，原因为不考虑多对多情况
@@ -1104,6 +1110,10 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
                 } else {
                     // 读取自定义节点属性 判断是否是否需要动态指定任务接收人员、组
                     String dataType = userTask.getAttributeValue(ProcessConstants.NAMASPASE, ProcessConstants.PROCESS_CUSTOM_DATA_TYPE);
+                    if (Objects.equals(userTask.getAssignee(), "${INITIATOR}")) {
+                        dataType = ProcessConstants.FIXED;
+                    }
+
                     String userType = userTask.getAttributeValue(ProcessConstants.NAMASPASE, ProcessConstants.PROCESS_CUSTOM_USER_TYPE);
                     flowNextDto.setVars(ProcessConstants.PROCESS_APPROVAL);
                     flowNextDto.setType(userType);
