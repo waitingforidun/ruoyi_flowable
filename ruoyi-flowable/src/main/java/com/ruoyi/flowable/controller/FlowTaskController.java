@@ -5,9 +5,7 @@ import com.ruoyi.flowable.domain.dto.FlowTaskDto;
 import com.ruoyi.flowable.domain.vo.FlowQueryVo;
 import com.ruoyi.flowable.domain.vo.FlowTaskVo;
 import com.ruoyi.flowable.service.IFlowTaskService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -178,17 +176,13 @@ public class FlowTaskController {
         return flowTaskService.getNextFlowNodeByStart(flowTaskVo);
     }
 
-    /**
-     * 生成流程图
-     *
-     * @param processId 任务ID
-     */
+    @ApiOperation(value = "生成流程图")
     @GetMapping("/diagram/{processId}")
     public void genProcessDiagram(HttpServletResponse response,
                                   @PathVariable("processId") String processId) {
         InputStream inputStream = flowTaskService.diagram(processId);
         OutputStream os = null;
-        BufferedImage image = null;
+        BufferedImage image;
         try {
             image = ImageIO.read(inputStream);
             response.setContentType("image/png");
@@ -210,36 +204,30 @@ public class FlowTaskController {
         }
     }
 
-    /**
-     * 获取流程执行节点
-     *
-     * @param procInsId 流程实例编号
-     * @param procInsId 任务执行编号
-     */
+    @ApiOperation(value = "获取流程执行节点")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "procInsId", value = "流程实例编号", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "executionId", value = "任务执行编号", dataType = "String", dataTypeClass = String.class)
+    })
     @GetMapping("/flowViewer/{procInsId}/{executionId}")
     public AjaxResult getFlowViewer(@PathVariable("procInsId") String procInsId,
                                     @PathVariable("executionId") String executionId) {
         return flowTaskService.getFlowViewer(procInsId, executionId);
     }
 
-    /**
-     * 流程节点信息
-     *
-     * @param procInsId 流程实例id
-     * @return
-     */
+    @ApiOperation(value = "流程节点信息")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "procInsId", value = "流程实例编号", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deployId", value = "流程部署id", dataType = "String", dataTypeClass = String.class)
+    })
     @GetMapping("/flowXmlAndNode")
     public AjaxResult flowXmlAndNode(@RequestParam(value = "procInsId", required = false) String procInsId,
                                      @RequestParam(value = "deployId", required = false) String deployId) {
         return flowTaskService.flowXmlAndNode(procInsId, deployId);
     }
 
-    /**
-     * 流程节点表单
-     *
-     * @param taskId 流程任务编号
-     * @return
-     */
+    @ApiOperation(value = "流程节点表单")
+    @ApiImplicitParam(name = "taskId", value = "流程任务编号", dataType = "String", dataTypeClass = String.class)
     @GetMapping("/flowTaskForm")
     public AjaxResult flowTaskForm(@RequestParam(value = "taskId", required = false) String taskId) throws Exception {
         return flowTaskService.flowTaskForm(taskId);

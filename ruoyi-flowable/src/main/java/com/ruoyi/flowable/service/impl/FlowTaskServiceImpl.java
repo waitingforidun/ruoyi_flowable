@@ -111,30 +111,33 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
     /**
      * 驳回任务
      *
-     * @param flowTaskVo
+     * @param flowTaskVo 流程任务数据
      */
     @Override
     public void taskReject(FlowTaskVo flowTaskVo) {
-        if (taskService.createTaskQuery().taskId(flowTaskVo.getTaskId()).singleResult().isSuspended()) {
-            throw new CustomException("任务处于挂起状态!");
-        }
         // 当前任务 task
         Task task = taskService.createTaskQuery().taskId(flowTaskVo.getTaskId()).singleResult();
+        if (task == null) {
+            throw new CustomException("任务已经被处理请不要重复提交!");
+        }
+        if (task.isSuspended()) {
+            throw new CustomException("任务处于挂起状态，不允许操作!");
+        }
         // 获取流程定义信息
-        ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery().processDefinitionId(task.getProcessDefinitionId()).singleResult();
+        ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
+                .processDefinitionId(task.getProcessDefinitionId()).singleResult();
         // 获取所有节点信息
         Process process = repositoryService.getBpmnModel(processDefinition.getId()).getProcesses().get(0);
         // 获取全部节点列表，包含子节点
         Collection<FlowElement> allElements = FlowableUtils.getAllElements(process.getFlowElements(), null);
         // 获取当前任务节点元素
         FlowElement source = null;
-        if (allElements != null) {
-            for (FlowElement flowElement : allElements) {
-                // 类型为用户节点
-                if (flowElement.getId().equals(task.getTaskDefinitionKey())) {
-                    // 获取节点信息
-                    source = flowElement;
-                }
+        for (FlowElement flowElement : allElements) {
+            // 类型为用户节点
+            if (flowElement.getId().equals(task.getTaskDefinitionKey())) {
+                // 获取节点信息
+                source = flowElement;
+                break;
             }
         }
 
@@ -142,14 +145,16 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
         // 获取当前节点的所有父级用户任务节点
         // 深度优先算法思想：延边迭代深入
         List<UserTask> parentUserTaskList = FlowableUtils.iteratorFindParentUserTasks(source, null, null);
-        if (parentUserTaskList == null || parentUserTaskList.size() == 0) {
+        if (parentUserTaskList.isEmpty()) {
             throw new CustomException("当前节点为初始任务节点，不能驳回");
         }
         // 获取活动 ID 即节点 Key
-        List<String> parentUserTaskKeyList = new ArrayList<>();
-        parentUserTaskList.forEach(item -> parentUserTaskKeyList.add(item.getId()));
+        List<String> parentUserTaskKeyList = parentUserTaskList.stream().map(BaseElement::getId).collect(Collectors.toList());
         // 获取全部历史节点活动实例，即已经走过的节点历史，数据采用开始时间升序
-        List<HistoricTaskInstance> historicTaskInstanceList = historyService.createHistoricTaskInstanceQuery().processInstanceId(task.getProcessInstanceId()).orderByHistoricTaskInstanceStartTime().asc().list();
+        List<HistoricTaskInstance> historicTaskInstanceList = historyService.createHistoricTaskInstanceQuery()
+                .processInstanceId(task.getProcessInstanceId())
+                .orderByHistoricTaskInstanceStartTime()
+                .asc().list();
         // 数据清洗，将回滚导致的脏数据清洗掉
         List<String> lastHistoricTaskInstanceList = FlowableUtils.historicTaskInstanceClean(allElements, historicTaskInstanceList);
         // 此时历史任务实例为倒序，获取最后走的节点
@@ -229,7 +234,6 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
         } catch (FlowableException e) {
             throw new CustomException("无法取消或开始活动");
         }
-
     }
 
     /**
