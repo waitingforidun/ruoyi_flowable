@@ -280,13 +280,32 @@ public class FindNextNodeUtil {
 
     /**
      * 校验el表达式
+     * 注意：字符串整数9位，小数8位都能够正确转换，基本够用。如果要求精度更高。请转换成BigDecimal处理，
+     * 对应的公式数字比较也要换成BigDecimal进行大小比较
+     * 例如：123456789.12345678
      *
-     * @param map
-     * @param expression
+     * @param map        上下文数据
+     * @param expression 判断表达式
      * @return
      */
     public static boolean expressionResult(Map<String, Object> map, String expression) {
         Expression exp = AviatorEvaluator.compile(expression);
+        // 处理参数，数字字符串转换为数字，同时进行参数检验，缺少参数抛出异常
+        exp.getVariableFullNames().forEach(s -> {
+            if (!map.containsKey(s)) {
+                throw new IllegalArgumentException("跳转表达是计算缺少" + s + "参数");
+            }
+            Object o = map.get(s);
+            if (o instanceof String) {
+                String value = ((String) o).trim();
+                // 使用正则表达式检查是否为数字
+                if (value.matches("-?\\d+(\\.\\d+)?")) {
+                    // 字符串是数字，转换为 double
+                    double number = Double.parseDouble(value);
+                    map.put(s, number);
+                }
+            }
+        });
         final Object execute = exp.execute(map);
         return Boolean.parseBoolean(String.valueOf(execute));
     }
