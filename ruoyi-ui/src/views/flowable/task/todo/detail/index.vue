@@ -314,15 +314,8 @@ export default {
       }
     },
 
-    handleDeptRoleSelect(selection) {
-      if (selection) {
-        if (selection instanceof Array) {
-          const selectVal = selection.map(item => item.roleId);
-          this.$set(this.taskForm.variables, "approval", selectVal.join(','));
-        } else {
-          this.$set(this.taskForm.variables, "approval", selection);
-        }
-      }
+    handleDeptRoleSelect() {
+      //TODO 委派选择本部门
     },
     /** 流程流转记录 */
     getFlowRecordList(procInsId, deployId) {
@@ -406,33 +399,27 @@ export default {
       this.delegateTitle = '委派流程';
       this.delegateOpen = true;
       this.checkSendUser = true;
-      //this.taskForm.delegateTaskShow = true;
-      //this.taskForm.defaultTaskShow = false;
     },
     taskDelegate(){
 
-      if (!this.taskForm.variables && this.checkSendUser) {
+      if (!this.taskForm.variables) {
         this.$modal.msgError("请选择流程接收人员!");
         return;
       }
-      if (!this.taskForm.variables && this.checkSendRole) {
-        this.$modal.msgError("请选择流程接收角色组!");
-        return;
-      }
+
+
       if (!this.taskForm.comment) {
         this.$modal.msgError("请输入审批意见!");
         return;
       }
-      if (this.taskForm && this.formKeyExist) {
-        // 表单是否禁用
-        this.taskForm.formData.formData.disabled = true;
-        // 是否显示按钮
-        this.taskForm.formData.formData.formBtns = false;
-        this.taskForm.variables = Object.assign({}, this.taskForm.variables, this.taskForm.formData.valData);
-        this.taskForm.variables.variables = this.taskForm.formData.formData;
-        delegate(this.taskForm).then(response => {
-          this.$modal.msgSuccess(response.msg);
-          this.goBack();
+      if (this.taskForm) {
+        this.$refs["taskForm"].validate(valid => {
+          if (valid) {
+            delegate(this.taskForm).then(response => {
+              this.$modal.msgSuccess(response.msg);
+              this.goBack();
+            });
+          }
         });
       }
     },
