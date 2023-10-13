@@ -22,7 +22,7 @@ export function complete(data) {
 // 委派任务
 export function delegate(data) {
   return request({
-    url: '/flowable/task/delegate',
+    url: '/flowable/task/delegateTask',
     method: 'post',
     data: data
   })
