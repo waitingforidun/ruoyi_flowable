@@ -23,7 +23,7 @@
               <el-button  icon="el-icon-edit-outline" type="primary" size="mini" @click="handleDelegate">委派</el-button>
 <!--              <el-button  icon="el-icon-edit-outline" type="primary" size="mini" @click="handleAssign">转办</el-button>-->
 <!--              <el-button  icon="el-icon-edit-outline" type="primary" size="mini" @click="handleDelegate">签收</el-button>-->
-              <el-button icon="el-icon-refresh-left" type="warning" size="mini" @click="handleReturn">退回</el-button>
+              <!--<el-button icon="el-icon-refresh-left" type="warning" size="mini" @click="handleReturn">退回</el-button>-->
               <el-button icon="el-icon-circle-close" type="danger" size="mini" @click="handleReject">驳回</el-button>
             </div>
           </el-col>
@@ -86,6 +86,7 @@
           <el-form-item prop="targetKey">
             <flow-user v-if="checkSendUser" :checkType="checkType" @handleUserSelect="handleUserSelect"></flow-user>
             <flow-role v-if="checkSendRole" @handleRoleSelect="handleRoleSelect"></flow-role>
+            <flow-role v-if="checkDeptRole" @handleRoleSelect="handleDeptRoleSelect"></flow-role>
           </el-form-item>
           <el-form-item label="处理意见" label-width="80px" prop="comment"
                         :rules="[{ required: true, message: '请输入处理意见', trigger: 'blur' }]">
@@ -95,6 +96,23 @@
         <span slot="footer" class="dialog-footer">
           <el-button @click="completeOpen = false">取 消</el-button>
           <el-button type="primary" @click="taskComplete">确 定</el-button>
+        </span>
+      </el-dialog>
+      <!--委派流程-->
+      <el-dialog :title="delegateTitle" :visible.sync="delegateOpen" width="60%" append-to-body>
+        <el-form ref="taskForm" :model="taskForm">
+          <el-form-item prop="targetKey">
+            <flow-user v-if="checkSendUser" :checkType="checkType" @handleUserSelect="handleUserSelect"></flow-user>
+            <flow-role v-if="checkSendRole" @handleRoleSelect="handleRoleSelect"></flow-role>
+          </el-form-item>
+          <el-form-item label="处理意见" label-width="80px" prop="comment"
+                        :rules="[{ required: true, message: '请输入处理意见', trigger: 'blur' }]">
+            <el-input type="textarea" v-model="taskForm.comment" placeholder="请输入处理意见"/>
+          </el-form-item>
+        </el-form>
+        <span slot="footer" class="dialog-footer">
+          <el-button @click="delegateOpen = false;checkSendUser = false">取 消</el-button>
+          <el-button type="primary" @click="taskDelegate">确 定</el-button>
         </span>
       </el-dialog>
       <!--退回流程-->
@@ -215,11 +233,14 @@ export default {
       completeOpen: false,
       returnTitle: null,
       returnOpen: false,
+      delegateTitle: null,
+      delegateOpen: false,
       rejectOpen: false,
       rejectTitle: null,
       userData: [],
       checkSendUser: false, // 是否展示人员选择模块
       checkSendRole: false,// 是否展示角色选择模块
+      checkDeptRole: false,// 是否展示部门用户选择模板
       checkType: 'single', // 选择类型
       taskName: null, // 任务节点
       startUser: null, // 发起人信息,
@@ -283,6 +304,17 @@ export default {
     },
     // 角色信息选中数据
     handleRoleSelect(selection) {
+      if (selection) {
+        if (selection instanceof Array) {
+          const selectVal = selection.map(item => item.roleId);
+          this.$set(this.taskForm.variables, "approval", selectVal.join(','));
+        } else {
+          this.$set(this.taskForm.variables, "approval", selection);
+        }
+      }
+    },
+
+    handleDeptRoleSelect(selection) {
       if (selection) {
         if (selection instanceof Array) {
           const selectVal = selection.map(item => item.roleId);
@@ -371,8 +403,38 @@ export default {
     },
     /** 委派任务 */
     handleDelegate() {
-      this.taskForm.delegateTaskShow = true;
-      this.taskForm.defaultTaskShow = false;
+      this.delegateTitle = '委派流程';
+      this.delegateOpen = true;
+      this.checkSendUser = true;
+      //this.taskForm.delegateTaskShow = true;
+      //this.taskForm.defaultTaskShow = false;
+    },
+    taskDelegate(){
+
+      if (!this.taskForm.variables && this.checkSendUser) {
+        this.$modal.msgError("请选择流程接收人员!");
+        return;
+      }
+      if (!this.taskForm.variables && this.checkSendRole) {
+        this.$modal.msgError("请选择流程接收角色组!");
+        return;
+      }
+      if (!this.taskForm.comment) {
+        this.$modal.msgError("请输入审批意见!");
+        return;
+      }
+      if (this.taskForm && this.formKeyExist) {
+        // 表单是否禁用
+        this.taskForm.formData.formData.disabled = true;
+        // 是否显示按钮
+        this.taskForm.formData.formData.formBtns = false;
+        this.taskForm.variables = Object.assign({}, this.taskForm.variables, this.taskForm.formData.valData);
+        this.taskForm.variables.variables = this.taskForm.formData.formData;
+        delegate(this.taskForm).then(response => {
+          this.$modal.msgSuccess(response.msg);
+          this.goBack();
+        });
+      }
     },
     handleAssign() {
 
