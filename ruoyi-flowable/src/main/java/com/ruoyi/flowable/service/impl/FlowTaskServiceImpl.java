@@ -454,7 +454,8 @@ public class FlowTaskServiceImpl extends FlowServiceFactory implements IFlowTask
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delegateTask(FlowTaskVo flowTaskVo) {
-        taskService.delegateTask(flowTaskVo.getTaskId(), flowTaskVo.getAssignee());
+
+        taskService.delegateTask(flowTaskVo.getTaskId(), (String) flowTaskVo.getVariables().get("approval"));
     }
 
     /**
