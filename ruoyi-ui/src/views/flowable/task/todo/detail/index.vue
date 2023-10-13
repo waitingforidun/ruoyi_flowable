@@ -103,7 +103,6 @@
         <el-form ref="taskForm" :model="taskForm">
           <el-form-item prop="targetKey">
             <flow-user v-if="checkSendUser" :checkType="checkType" @handleUserSelect="handleUserSelect"></flow-user>
-            <flow-role v-if="checkSendRole" @handleRoleSelect="handleRoleSelect"></flow-role>
           </el-form-item>
           <el-form-item label="处理意见" label-width="80px" prop="comment"
                         :rules="[{ required: true, message: '请输入处理意见', trigger: 'blur' }]">
@@ -220,6 +219,7 @@ export default {
         taskId: "",// 流程任务编号
         procDefId: "",  // 流程编号
         targetKey: "",
+        assignee: "", // 处理人（用于委派）
         variables: {
           variables: {}
         },
@@ -299,6 +299,7 @@ export default {
           }
         } else {
           this.$set(this.taskForm.variables, "approval", selection.userId.toString());
+          this.taskForm.assignee = selection.userId.toString();
         }
       }
     },
@@ -402,8 +403,8 @@ export default {
     },
     taskDelegate(){
 
-      if (!this.taskForm.variables) {
-        this.$modal.msgError("请选择流程接收人员!");
+      if (!this.taskForm.assignee) {
+        this.$modal.msgError("请选择流程被委派人员!");
         return;
       }
 
