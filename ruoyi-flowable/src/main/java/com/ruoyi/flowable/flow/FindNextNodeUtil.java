@@ -293,7 +293,7 @@ public class FindNextNodeUtil {
         // 处理参数，数字字符串转换为数字，同时进行参数检验，缺少参数抛出异常
         exp.getVariableFullNames().forEach(s -> {
             if (!map.containsKey(s)) {
-                throw new IllegalArgumentException("跳转表达是计算缺少" + s + "参数");
+                throw new IllegalArgumentException("跳转表达式计算缺少" + s + "参数");
             }
             Object o = map.get(s);
             if (o instanceof String) {
